@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== 设置管理 =====
 function openSettings() {
   const token = localStorage.getItem(STORAGE_KEY_TOKEN) || '';
-  const endpoint = localStorage.getItem(STORAGE_KEY_API_ENDPOINT) || 'https://api.novelai.net';
+  const endpoint = localStorage.getItem(STORAGE_KEY_API_ENDPOINT) || '/api/generate';
 
   document.getElementById('tokenInput').value = token;
   document.getElementById('apiEndpoint').value = endpoint;
@@ -48,7 +48,7 @@ function saveSettings() {
   const token = document.getElementById('tokenInput').value.trim();
   const endpoint = document.getElementById('apiEndpoint').value.trim();
 
-  if (!token) {
+  if (false && !token) {
     show('请输入 API Token');
     return;
   }
@@ -70,7 +70,7 @@ function loadSettings() {
 }
 
 function getApiEndpoint() {
-  return localStorage.getItem(STORAGE_KEY_API_ENDPOINT) || 'https://api.novelai.net';
+  return '/api/generate';
 }
 
 function getApiToken() {
@@ -109,7 +109,7 @@ function showPresetForm() {
     prompt,
     seed,
     negativePrompt: 'lowres, bad quality, blurry, low quality, worst quality, text, watermark',
-    model: 'nai-diffusion-4',
+    model: 'nai-diffusion-4-5',
     resolution: '640x960',
     steps: 28,
     guidance: 7,
@@ -195,8 +195,8 @@ async function generate() {
     return;
   }
 
-  const token = getApiToken();
-  if (!token) {
+  const token = getApiToken() || '';
+  if (false && !token) {
     show('⚙ 请先设置 API Token');
     openSettings();
     return;
@@ -242,17 +242,17 @@ async function processQueue() {
 
   try {
     const token = getApiToken();
-    const endpoint = getApiEndpoint();
     const [width, height] = job.resolution.split('x').map(Number);
     const seed = job.seed ? parseInt(job.seed) : Math.floor(Math.random() * 1000000000);
 
-    const response = await fetch(`${endpoint}/ai/generate-image`, {
+    const response = await fetch('/api/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
+        token,
         input: job.prompt,
         model: job.model,
         action: 'generate',
