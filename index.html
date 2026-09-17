@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101012" />
+    <title>Novel · 创作工作台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-mark">N</span><span>novel</span><span class="pro-pill">STUDIO</span></div>
+        <div class="workspace-switcher"><div class="workspace-dot"></div><div><small>当前空间</small><strong>个人创作室</strong></div><span class="chevron">⌄</span></div>
+        <nav class="main-nav">
+          <a class="nav-item active" data-view="studio"><span class="nav-icon">✦</span> 创作工作台</a>
+          <a class="nav-item" data-view="gallery"><span class="nav-icon">▦</span> 我的画廊 <b class="nav-count" id="galleryCount">0</b></a>
+          <a class="nav-item" data-view="presets"><span class="nav-icon">✧</span> 画师预设</a>
+          <a class="nav-item" data-view="queue"><span class="nav-icon">◷</span> 生成队列 <b class="nav-count warm" id="queueCount">0</b></a>
+        </nav>
+        <div class="sidebar-label">灵感收藏</div>
+        <div class="collection-list"><button class="collection active"><span class="collection-color coral"></span> 新项目 · 氛围稿 <b>12</b></button><button class="collection"><span class="collection-color blue"></span> 角色设定集 <b>8</b></button><button class="collection"><span class="collection-color green"></span> 场景光影研究 <b>24</b></button><button class="add-collection">＋ 新建收藏集</button></div>
+        <div class="sidebar-bottom"><div class="usage-head"><span>本月算力</span><b>72%</b></div><div class="usage-bar"><i></i></div><small>还剩 1,420 张图</small><button class="upgrade-btn">升级创作额度 <span>→</span></button><div class="user-row"><div class="avatar">L</div><div><strong>Lin</strong><small>免费版</small></div><span class="more">···</span></div></div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar"><div class="breadcrumb"><span>个人创作室</span><b>/</b><strong id="pageTitle">创作工作台</strong></div><div class="top-actions"><button class="icon-btn" id="apiSettingsBtn" title="API 设置">⚙</button><button class="icon-btn" title="快捷键">⌘</button><button class="icon-btn notification" title="通知">♢<i></i></button><div class="top-avatar">L</div></div></header>
+
+        <section class="view studio-view" id="studioView">
+          <div class="studio-heading"><div><p class="eyebrow">NOVEL IMAGE LAB <span></span></p><h1>把脑海里的画面，<em>交给光。</em></h1><p class="subheading">用自然语言描述你的想象，让 Novel 将它变成可收藏的作品。</p></div><div class="heading-actions"><button class="ghost-btn" id="randomPromptBtn">↯ 随机灵感</button><button class="primary-btn" id="newCanvasBtn">＋ 新建画布</button></div></div>
+
+          <div class="studio-grid">
+            <section class="control-panel panel">
+              <div class="panel-title"><h2>描述你的画面</h2><span class="token-count" id="tokenCount">0 / 2000</span></div>
+              <div class="prompt-wrap"><textarea id="promptInput" maxlength="2000" placeholder="例如：雨后东京的屋顶，穿红色风衣的女孩回望霓虹街道，电影感构图…"></textarea><div class="prompt-tools"><button title="增强提示词" id="enhanceBtn">✦ 增强</button><button title="清空" id="clearPromptBtn">清空</button></div></div>
+              <div class="tag-row" id="promptTags"><button class="tag">电影感</button><button class="tag">柔和光线</button><button class="tag">高细节</button><button class="tag add-tag">＋ 添加关键词</button></div>
+              <div class="section-divider"></div>
+              <div class="setting-block"><div class="setting-label"><span>画师预设</span><button class="text-btn" id="managePresetsBtn">管理预设 →</button></div><div class="artist-select" id="artistSelect"><div class="artist-avatar akira">AK</div><div><strong id="artistName">Akira Mizuno</strong><small id="artistDesc">Neo cinematic · 柔和叙事光</small></div><span>⌄</span><div class="artist-menu" id="artistMenu"></div></div></div>
+              <div class="settings-grid"><label class="field"><span>模型</span><select id="modelSelect"><option value="novel-v3">Novel V3 · 推荐</option><option value="novel-anime">Novel Anime</option><option value="sdxl">SDXL 1.0</option></select></label><label class="field"><span>画幅</span><select id="ratioSelect"><option value="2:3">竖幅 · 2:3</option><option value="1:1">方形 · 1:1</option><option value="3:2">横幅 · 3:2</option><option value="16:9">宽屏 · 16:9</option></select></label><label class="field"><span>采样步数 <output id="stepsOutput">28</output></span><input id="stepsRange" type="range" min="10" max="50" value="28" /></label><label class="field"><span>引导强度 <output id="guidanceOutput">7.5</output></span><input id="guidanceRange" type="range" min="1" max="15" value="7.5" step="0.5" /></label></div>
+              <div class="advanced-row"><button class="disclosure" id="advancedToggle">⌄ 高级参数</button><span class="seed-label">种子 <input id="seedInput" value="随机" /></span><button class="dice-btn" id="randomSeedBtn" title="随机种子">⚄</button></div>
+              <div class="advanced-content" id="advancedContent"><label>负面提示词<input id="negativeInput" placeholder="模糊、低质量、畸形手指…" /></label><label>批量数量<select id="batchSelect"><option value="1">1 张</option><option value="2">2 张</option><option value="4">4 张</option><option value="8">8 张</option></select></label></div>
+              <button class="generate-btn" id="generateBtn"><span>✦</span> 开始生成 <kbd>⌘ ↵</kbd></button>
+            </section>
+
+            <section class="preview-panel"><div class="preview-header"><div><span class="live-dot"></span><span id="previewStatus">实时预览</span></div><div class="preview-actions"><button class="icon-btn" title="全屏">⛶</button><button class="icon-btn" title="更多">···</button></div></div><div class="preview-canvas" id="previewCanvas"><div class="canvas-empty"><div class="sparkle">✦</div><h3>你的下一幅作品<br /><em>将在这里出现</em></h3><p>填写描述后点击开始生成<br />或试试右上角的随机灵感</p></div></div><div class="preview-footer"><span id="canvasMeta">Novel V3 · 2:3 · 未生成</span><button class="save-btn" id="savePreviewBtn" disabled>♡ 收藏</button></div></section>
+          </div>
+          <section class="recent-section"><div class="section-heading"><div><h2>最近创作</h2><span>你的灵感不会丢失</span></div><button class="text-btn" data-view="gallery">查看全部 →</button></div><div class="recent-grid" id="recentGrid"></div></section>
+        </section>
+
+        <section class="view hidden" id="galleryView"><div class="page-heading"><div><p class="eyebrow">YOUR ARCHIVE</p><h1>我的画廊</h1><p>所有生成过的作品都在这里，按收藏集整理你的视觉资产。</p></div><div class="filter-row"><button class="filter-btn active">全部</button><button class="filter-btn">已收藏</button><button class="filter-btn">最近生成</button></div></div><div class="gallery-grid" id="galleryGrid"></div></section>
+        <section class="view hidden" id="presetsView"><div class="page-heading"><div><p class="eyebrow">ARTIST LIBRARY</p><h1>画师预设</h1><p>输入画师名，加载一整套风格参数，自动排队生成。</p></div><button class="primary-btn" id="addPresetBtn">＋ 新建预设</button></div><div class="preset-layout"><div class="preset-search panel"><div class="search-box">⌕ <input id="presetSearch" placeholder="搜索画师名称…" /></div><div id="presetList"></div></div><div class="preset-detail panel" id="presetDetail"></div></div></section>
+        <section class="view hidden" id="queueView"><div class="page-heading"><div><p class="eyebrow">GENERATION QUEUE</p><h1>生成队列</h1><p>批量任务会按顺序处理，你可以随时暂停或调整优先级。</p></div><button class="ghost-btn" id="clearQueueBtn">清空已完成</button></div><div class="queue-panel panel" id="queuePanel"></div></section>
+      </main>
+    </div>
+    <div class="toast" id="toast"></div>
+    <div class="modal-backdrop hidden" id="apiModal"><div class="api-modal"><div class="modal-head"><div><p class="eyebrow">CONNECTION</p><h2>网页 API 设置</h2></div><button class="icon-btn" id="closeApiModal">×</button></div><p class="modal-note">适用于支持 CORS 的 OpenAI 兼容生图接口。Key 仅保存在当前浏览器。</p><label class="modal-field">接口地址<input id="apiEndpoint" placeholder="https://api.example.com/v1/images/generations" /></label><label class="modal-field">API Key<input id="apiKey" type="password" placeholder="sk-..." /></label><label class="modal-field">请求格式<select id="apiFormat"><option value="openai">OpenAI 兼容（推荐）</option><option value="custom">自定义 JSON</option></select></label><div class="modal-actions"><button class="ghost-btn" id="clearApiBtn">清除</button><button class="primary-btn" id="saveApiBtn">保存连接</button></div></div></div>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
