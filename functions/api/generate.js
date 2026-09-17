@@ -31,9 +31,12 @@ export async function onRequestPost({ request, env }) {
     const response = await fetch('https://api.novelai.net/ai/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ input: body.input || body.prompt, model: body.model || 'nai-diffusion-4-5', action: 'generate', parameters: body.parameters || {} })
+      body: JSON.stringify({ input: body.input || body.prompt, model: body.model || 'nai-diffusion-5', action: 'generate', parameters: body.parameters || {} })
     });
-    if (!response.ok) return Response.json({ error: await response.text() }, { status: response.status, headers: corsHeaders });
+    if (!response.ok) {
+      const detail = await response.text();
+      return Response.json({ error: `NovelAI ${response.status}: ${detail}` }, { status: response.status, headers: corsHeaders });
+    }
     const upstream = await response.arrayBuffer();
     const image = (response.headers.get('content-type') || '').includes('zip') ? await unzipFirstImage(upstream) : new Uint8Array(upstream);
     if (!image) throw new Error('NovelAI returned an unexpected image format');
