@@ -1,49 +1,44 @@
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+};
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
+
+async function unzipFirstImage(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  if (view.getUint32(0, true) !== 0x04034b50) return null;
+  const method = view.getUint16(8, true);
+  const compressedSize = view.getUint32(18, true);
+  const nameLength = view.getUint16(26, true);
+  const extraLength = view.getUint16(28, true);
+  const start = 30 + nameLength + extraLength;
+  const compressed = bytes.slice(start, start + compressedSize);
+  if (method === 0) return compressed;
+  if (method !== 8) throw new Error(`Unsupported ZIP compression method: ${method}`);
+  return new Uint8Array(await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+}
+
 export async function onRequestPost({ request, env }) {
   const body = await request.json();
-
   const token = body.token || env.NOVELAI_TOKEN;
-  if (!token) {
-    return Response.json({
-      error: '缺少 Novel AI Token，请在前端输入或设置环境变量 NOVELAI_TOKEN'
-    }, { status: 401 });
-  }
-
+  if (!token) return Response.json({ error: 'Missing NovelAI token' }, { status: 401, headers: corsHeaders });
   try {
     const response = await fetch('https://api.novelai.net/ai/generate-image', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        input: body.prompt,
-        model: body.model || 'nai-diffusion-4',
-        action: 'generate',
-        parameters: body.parameters || {
-          width: 640,
-          height: 960,
-          scale: 7,
-          steps: 28,
-          n_samples: 1,
-          sampler: 'k_euler',
-          schedule: 'native'
-        }
-      })
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ input: body.input || body.prompt, model: body.model || 'nai-diffusion-4-5', action: 'generate', parameters: body.parameters || {} })
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      return Response.json({ error: error || '生图 API 失败' }, { status: response.status });
-    }
-
-    return new Response(response.body, {
-      status: 200,
-      headers: {
-        'Content-Type': 'image/png',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
+    if (!response.ok) return Response.json({ error: await response.text() }, { status: response.status, headers: corsHeaders });
+    const upstream = await response.arrayBuffer();
+    const image = (response.headers.get('content-type') || '').includes('zip') ? await unzipFirstImage(upstream) : new Uint8Array(upstream);
+    if (!image) throw new Error('NovelAI returned an unexpected image format');
+    return new Response(image, { headers: { ...corsHeaders, 'Content-Type': 'image/png' } });
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
   }
 }
