@@ -1,15 +1,337 @@
-const artists=[{name:'Akira Mizuno',desc:'Neo cinematic / soft narrative light',initials:'AK',color:'#f3ad7a',seed:'42190831'},{name:'Yuki Tanaka',desc:'Dreamy anime / airy atmosphere',initials:'YT',color:'#b8a4ff',seed:'83910274'},{name:'Mara Voss',desc:'Editorial noir / vintage grain',initials:'MV',color:'#8db9ff',seed:'16740218'},{name:'Eliot Park',desc:'Painterly fantasy / oil texture',initials:'EP',color:'#9bd7b7',seed:'50881239'}];
-const ideas=['Rainy Tokyo rooftop, red coat, neon reflections, cinematic composition','An old library floating above clouds, golden afternoon light, fantasy illustration','White dog outside a late-night convenience store, wet street, colorful signs','Moon greenhouse full of luminous ferns, transparent dome, sci-fi concept art'];
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const state={gallery:JSON.parse(localStorage.getItem('novelGallery')||'[]'),artist:0,lastImage:null};
-function toast(m){const n=$('#toast');if(!n)return;n.textContent=m;n.classList.add('show');setTimeout(()=>n.classList.remove('show'),2200)}
-function save(){localStorage.setItem('novelGallery',JSON.stringify(state.gallery));if($('#galleryCount'))$('#galleryCount').textContent=state.gallery.length}
-function artImage(i){const c=[['#d67456','#251d2d','#f2c078'],['#6952a8','#18253e','#eeb2cf'],['#283a4c','#be734f','#e4cda1'],['#3c745f','#182c29','#d4b66e']][i%4];const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 900"><defs><linearGradient id="g"><stop stop-color="${c[0]}"/><stop offset=".55" stop-color="${c[1]}"/><stop offset="1" stop-color="${c[2]}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><circle cx="70%" cy="30%" r="25%" fill="${c[2]}" opacity=".3"/><path d="M0 75% Q30% 58% 55% 74% T100% 65% V100% H0Z" fill="#101319" opacity=".45"/></svg>`;return`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`}
-function applyArtist(){const a=artists[state.artist];$('#artistName').textContent=a.name;$('#artistDesc').textContent=a.desc;$('#seedInput').value=a.seed;const v=$('.artist-avatar');if(v){v.textContent=a.initials;v.style.background=a.color}}
-function card(x){return`<div class="image-card"><img src="${x.src}"/><div class="card-overlay">${x.prompt.slice(0,42)}</div></div>`}
-function renderRecent(){const a=state.gallery.slice(0,4);$('#recentGrid').innerHTML=a.length?a.map(card).join(''):[0,1,2,3].map(i=>`<div class="image-card"><img src="${artImage(i)}"/></div>`).join('')}
-function renderGallery(){$('#galleryGrid').innerHTML=state.gallery.length?state.gallery.map(card).join(''):'<div class="empty-state" style="grid-column:1/-1">还没有作品，先生成一张吧。</div>'}
-function renderPresets(){const q=($('#presetSearch').value||'').toLowerCase();$('#presetList').innerHTML=artists.filter(a=>a.name.toLowerCase().includes(q)).map((a,i)=>`<div class="preset-list-item ${i===state.artist?'active':''}" data-artist="${i}"><div class="artist-avatar" style="background:${a.color}">${a.initials}</div><div><strong>${a.name}</strong><small>${a.desc}</small></div></div>`).join('');$$('.preset-list-item').forEach(n=>n.onclick=()=>{state.artist=+n.dataset.artist;renderPresets()});const a=artists[state.artist];$('#presetDetail').innerHTML=`<p class="eyebrow">ARTIST PRESET</p><h2>${a.name}</h2><p>${a.desc}</p><button class="primary-btn use-preset">应用到创作台 →</button>`;$('.use-preset').onclick=()=>{applyArtist();navigate('studio')}}
-function navigate(v){$$('.view').forEach(n=>n.classList.add('hidden'));const t=$(`#${v}View`);if(t)t.classList.remove('hidden');if(v==='gallery')renderGallery();if(v==='presets')renderPresets()}
-async function generate(){const prompt=$('#promptInput').value.trim()||ideas[Math.floor(Math.random()*ideas.length)];const button=$('#generateBtn');button.disabled=true;$('#previewStatus').textContent='生成中…';$('#previewCanvas').innerHTML='<div class="loading-shimmer"></div>';let src;const api=JSON.parse(localStorage.getItem('novelApi')||'{}');try{if(api.key&&api.endpoint&&window.JSZip){const r=await fetch(api.endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${api.key}`},body:JSON.stringify({input:prompt,action:'generate',model:'nai-diffusion-4-5-full',parameters:{width:640,height:960,steps:+$('#stepsRange').value,scale:+$('#guidanceRange').value,seed:$('#seedInput').value==='随机'?Math.floor(Math.random()*99999999):+$('#seedInput').value,n_samples:1,negative_prompt:$('#negativeInput').value}})});if(r.ok){const z=await JSZip.loadAsync(await r.arrayBuffer());const f=z.file(/\.(png|jpg|jpeg)$/i)[0];if(f)src=URL.createObjectURL(await f.async('blob'))}}}catch(e){toast('NovelAI 直连失败，使用本地预览')}src=src||artImage(state.gallery.length);state.lastImage=src;state.gallery.unshift({id:Date.now(),src,prompt,artist:artists[state.artist].name,ratio:$('#ratioSelect').value,favorite:false});$('#previewCanvas').innerHTML=`<img class="generated-preview" src="${src}"/>`;$('#canvasMeta').textContent=`NovelAI · ${$('#ratioSelect').value} · ${artists[state.artist].name}`;$('#savePreviewBtn').disabled=false;$('#previewStatus').textContent='生成完成';button.disabled=false;save();renderRecent();toast('作品已生成')}
-document.addEventListener('DOMContentLoaded',()=>{save();renderRecent();applyArtist();$('#promptInput').oninput=()=>$('#tokenCount').textContent=`${$('#promptInput').value.length} / 2000`;$('#generateBtn').onclick=generate;$('#randomPromptBtn').onclick=()=>{$('#promptInput').value=ideas[Math.floor(Math.random()*ideas.length)];$('#promptInput').oninput()};$('#enhanceBtn').onclick=()=>{$('#promptInput').value+=', cinematic lighting, intricate details';$('#promptInput').oninput()};$('#clearPromptBtn').onclick=()=>{$('#promptInput').value='';$('#promptInput').oninput()};$('#randomSeedBtn').onclick=()=>$('#seedInput').value=Math.floor(Math.random()*99999999);$('#stepsRange').oninput=e=>$('#stepsOutput').textContent=e.target.value;$('#guidanceRange').oninput=e=>$('#guidanceOutput').textContent=e.target.value;$('#advancedToggle').onclick=()=>$('#advancedContent').classList.toggle('open');$('#savePreviewBtn').onclick=()=>{if(state.gallery[0]){state.gallery[0].favorite=true;save();toast('已收藏')}};$$('[data-view]').forEach(n=>n.onclick=()=>navigate(n.dataset.view));$('#managePresetsBtn').onclick=()=>navigate('presets');$('#presetSearch').oninput=renderPresets;$('#apiSettingsBtn').onclick=()=>$('#apiModal').classList.remove('hidden');$('#closeApiModal').onclick=()=>$('#apiModal').classList.add('hidden');$('#saveApiBtn').onclick=()=>{localStorage.setItem('novelApi',JSON.stringify({endpoint:$('#apiEndpoint').value.trim(),key:$('#apiKey').value.trim()}));$('#apiModal').classList.add('hidden');toast('连接设置已保存')};$('#clearApiBtn').onclick=()=>{localStorage.removeItem('novelApi');$('#apiKey').value='';toast('已清除连接')}})
+const API_URL = 'https://api.novelai.net/ai/generate-image';
+const STORAGE_KEY_PRESETS = 'nai_presets';
+const STORAGE_KEY_GALLERY = 'nai_gallery';
+const STORAGE_KEY_QUEUE = 'nai_queue';
+const STORAGE_KEY_TOKEN = 'nai_token';
+
+let state = {
+  presets: [],
+  gallery: [],
+  queue: [],
+  currentArtist: null,
+  processing: false
+};
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => {
+  loadFromStorage();
+  renderPresets();
+  renderGallery();
+  renderQueue();
+
+  // 快捷键
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      generate();
+    }
+  });
+});
+
+// ===== 预设管理 =====
+function loadFromStorage() {
+  const presets = localStorage.getItem(STORAGE_KEY_PRESETS);
+  const gallery = localStorage.getItem(STORAGE_KEY_GALLERY);
+  const queue = localStorage.getItem(STORAGE_KEY_QUEUE);
+
+  if (presets) state.presets = JSON.parse(presets);
+  if (gallery) state.gallery = JSON.parse(gallery);
+  if (queue) state.queue = JSON.parse(queue);
+}
+
+function saveToStorage() {
+  localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(state.presets));
+  localStorage.setItem(STORAGE_KEY_GALLERY, JSON.stringify(state.gallery));
+  localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(state.queue));
+}
+
+function showPresetForm() {
+  const name = prompt('输入画师名称:');
+  if (!name) return;
+
+  const prompt = prompt('输入提示词:');
+  if (!prompt) return;
+
+  const seed = prompt('输入种子 (留空为随机):') || '';
+
+  const preset = {
+    id: Date.now(),
+    name,
+    prompt,
+    seed,
+    negativePrompt: 'lowres, bad quality, low quality',
+    model: 'nai-diffusion-4',
+    resolution: '640x960',
+    steps: 28,
+    guidance: 7
+  };
+
+  state.presets.push(preset);
+  saveToStorage();
+  renderPresets();
+  show('预设已保存');
+}
+
+function deletePreset(id) {
+  if (confirm('确定删除?')) {
+    state.presets = state.presets.filter(p => p.id !== id);
+    saveToStorage();
+    renderPresets();
+    show('预设已删除');
+  }
+}
+
+function renderPresets() {
+  const list = document.getElementById('presetList');
+  list.innerHTML = state.presets.map(p => `
+    <div class="preset-item" onclick="loadPreset(${p.id})">
+      <strong>${p.name}</strong>
+      <small>${p.prompt.substring(0, 30)}...</small>
+      <button onclick="event.stopPropagation(); deletePreset(${p.id})" style="
+        float: right;
+        background: none;
+        border: none;
+        color: #f44;
+        cursor: pointer;
+        padding: 0;
+      ">×</button>
+    </div>
+  `).join('');
+}
+
+function loadPreset(id) {
+  const preset = state.presets.find(p => p.id === id);
+  if (!preset) return;
+
+  document.getElementById('artistSelect').value = id;
+  document.getElementById('prompt').value = preset.prompt;
+  document.getElementById('negativePrompt').value = preset.negativePrompt;
+  document.getElementById('model').value = preset.model;
+  document.getElementById('resolution').value = preset.resolution;
+  document.getElementById('steps').value = preset.steps;
+  document.getElementById('guidance').value = preset.guidance;
+  if (preset.seed) document.getElementById('seed').value = preset.seed;
+
+  state.currentArtist = preset;
+  show('已加载预设: ' + preset.name);
+}
+
+function applyPreset() {
+  const select = document.getElementById('artistSelect');
+  const id = parseInt(select.value);
+  if (id) loadPreset(id);
+}
+
+// ===== 生成 =====
+async function generate() {
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!prompt) {
+    show('请输入提示词');
+    return;
+  }
+
+  const token = localStorage.getItem(STORAGE_KEY_TOKEN);
+  if (!token) {
+    const newToken = prompt('输入 Novel AI API Token (从 https://novelai.net 获取):');
+    if (!newToken) return;
+    localStorage.setItem(STORAGE_KEY_TOKEN, newToken);
+  }
+
+  const jobId = Date.now().toString();
+  const job = {
+    id: jobId,
+    prompt,
+    negativePrompt: document.getElementById('negativePrompt').value,
+    model: document.getElementById('model').value,
+    resolution: document.getElementById('resolution').value,
+    steps: parseInt(document.getElementById('steps').value),
+    guidance: parseFloat(document.getElementById('guidance').value),
+    seed: document.getElementById('seed').value || null,
+    batchSize: parseInt(document.getElementById('batchSize').value),
+    status: 'queued',
+    timestamp: new Date().toLocaleString(),
+    result: null
+  };
+
+  state.queue.push(job);
+  saveToStorage();
+  renderQueue();
+  show('已加入队列');
+
+  // 处理第一个任务
+  processQueue();
+}
+
+async function processQueue() {
+  if (state.processing || state.queue.length === 0) return;
+
+  const job = state.queue.find(j => j.status === 'queued');
+  if (!job) return;
+
+  state.processing = true;
+  job.status = 'processing';
+  renderQueue();
+
+  try {
+    const token = localStorage.getItem(STORAGE_KEY_TOKEN);
+    const [width, height] = job.resolution.split('x').map(Number);
+    const seed = job.seed ? parseInt(job.seed) : Math.floor(Math.random() * 1000000000);
+
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        input: job.prompt,
+        model: job.model,
+        action: 'generate',
+        parameters: {
+          width,
+          height,
+          scale: job.guidance,
+          steps: job.steps,
+          seed,
+          n_samples: job.batchSize,
+          negative_prompt: job.negativePrompt,
+          sampler: 'k_euler',
+          schedule: 'native'
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+
+    job.status = 'done';
+    job.result = {
+      imageUrl: url,
+      seed,
+      artist: state.currentArtist ? state.currentArtist.name : 'Custom'
+    };
+
+    // 加入画廊
+    state.gallery.unshift({
+      id: Date.now(),
+      prompt: job.prompt,
+      imageUrl: url,
+      timestamp: job.timestamp,
+      artist: job.result.artist,
+      seed
+    });
+
+    saveToStorage();
+    renderQueue();
+    renderGallery();
+
+    // 显示预览
+    const preview = document.getElementById('preview');
+    preview.innerHTML = `<img src="${url}" style="width: 100%; height: 100%; object-fit: cover;">`;
+
+    show('生成完成!');
+  } catch (error) {
+    job.status = 'error';
+    job.error = error.message;
+    show('生成失败: ' + error.message);
+  } finally {
+    state.processing = false;
+    saveToStorage();
+    renderQueue();
+
+    // 继续处理队列
+    setTimeout(processQueue, 500);
+  }
+}
+
+// ===== 队列 =====
+function renderQueue() {
+  const list = document.getElementById('queueList');
+  if (state.queue.length === 0) {
+    list.innerHTML = '<div style="color: #666; font-size: 13px;">队列为空</div>';
+    return;
+  }
+
+  list.innerHTML = state.queue.map((job, idx) => {
+    let statusText = '等待中';
+    let statusClass = '';
+    if (job.status === 'processing') {
+      statusText = '处理中...';
+      statusClass = 'processing';
+    } else if (job.status === 'done') {
+      statusText = '完成 ✓';
+      statusClass = 'done';
+    } else if (job.status === 'error') {
+      statusText = '失败 ✗';
+    }
+
+    return `
+      <div class="queue-item ${statusClass}">
+        <div>
+          <div>${job.prompt.substring(0, 50)}...</div>
+          <div class="queue-status">${job.resolution} · ${job.steps} steps · ${statusText}</div>
+        </div>
+        <button onclick="removeQueueJob('${job.id}')" style="
+          background: none;
+          border: none;
+          color: #f44;
+          cursor: pointer;
+        ">×</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function removeQueueJob(id) {
+  state.queue = state.queue.filter(j => j.id !== id);
+  saveToStorage();
+  renderQueue();
+}
+
+// ===== 画廊 =====
+function renderGallery() {
+  const grid = document.getElementById('galleryGrid');
+  if (state.gallery.length === 0) {
+    grid.innerHTML = '<div style="color: #666; font-size: 13px; grid-column: 1/-1;">还没有生成过图像</div>';
+    return;
+  }
+
+  grid.innerHTML = state.gallery.map(item => `
+    <div class="gallery-item" onclick="downloadImage('${item.imageUrl}', '${item.seed}')">
+      <img src="${item.imageUrl}" alt="${item.prompt}">
+      <div class="gallery-item-info">
+        <strong>${item.artist}</strong><br>
+        ${item.timestamp}
+      </div>
+    </div>
+  `).join('');
+}
+
+function downloadImage(url, seed) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `novel-${seed}.png`;
+  a.click();
+}
+
+// ===== UI 辅助 =====
+function switchTab(tab) {
+  // 隐藏所有标签页
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+  // 显示选中标签页
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function show(msg) {
+  const div = document.createElement('div');
+  div.className = 'message';
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 2500);
+}
