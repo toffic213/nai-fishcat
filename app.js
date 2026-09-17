@@ -1,8 +1,8 @@
-const API_URL = 'https://api.novelai.net/ai/generate-image';
 const STORAGE_KEY_PRESETS = 'nai_presets';
 const STORAGE_KEY_GALLERY = 'nai_gallery';
 const STORAGE_KEY_QUEUE = 'nai_queue';
 const STORAGE_KEY_TOKEN = 'nai_token';
+const STORAGE_KEY_API_ENDPOINT = 'nai_api_endpoint';
 
 let state = {
   presets: [],
@@ -16,8 +16,10 @@ let state = {
 document.addEventListener('DOMContentLoaded', () => {
   loadFromStorage();
   renderPresets();
+  renderArtistSelect();
   renderGallery();
   renderQueue();
+  loadSettings();
 
   // 快捷键
   document.addEventListener('keydown', (e) => {
@@ -26,6 +28,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// ===== 设置管理 =====
+function openSettings() {
+  const token = localStorage.getItem(STORAGE_KEY_TOKEN) || '';
+  const endpoint = localStorage.getItem(STORAGE_KEY_API_ENDPOINT) || 'https://api.novelai.net';
+
+  document.getElementById('tokenInput').value = token;
+  document.getElementById('apiEndpoint').value = endpoint;
+
+  document.getElementById('settingsModal').classList.remove('hidden');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.add('hidden');
+}
+
+function saveSettings() {
+  const token = document.getElementById('tokenInput').value.trim();
+  const endpoint = document.getElementById('apiEndpoint').value.trim();
+
+  if (!token) {
+    show('请输入 API Token');
+    return;
+  }
+
+  localStorage.setItem(STORAGE_KEY_TOKEN, token);
+  localStorage.setItem(STORAGE_KEY_API_ENDPOINT, endpoint);
+
+  closeSettings();
+  show('设置已保存');
+}
+
+function loadSettings() {
+  const token = localStorage.getItem(STORAGE_KEY_TOKEN);
+  if (!token) {
+    setTimeout(() => {
+      show('⚙ 请先点击右上角设置添加 API Token');
+    }, 500);
+  }
+}
+
+function getApiEndpoint() {
+  return localStorage.getItem(STORAGE_KEY_API_ENDPOINT) || 'https://api.novelai.net';
+}
+
+function getApiToken() {
+  return localStorage.getItem(STORAGE_KEY_TOKEN);
+}
 
 // ===== 预设管理 =====
 function loadFromStorage() {
@@ -45,37 +95,42 @@ function saveToStorage() {
 }
 
 function showPresetForm() {
-  const name = prompt('输入画师名称:');
+  const name = prompt('画师名称 (例如: 水彩风格)');
   if (!name) return;
 
-  const prompt = prompt('输入提示词:');
+  const prompt = prompt('提示词 (核心描述)');
   if (!prompt) return;
 
-  const seed = prompt('输入种子 (留空为随机):') || '';
+  const seed = prompt('种子 (留空为随机)') || '';
 
   const preset = {
     id: Date.now(),
     name,
     prompt,
     seed,
-    negativePrompt: 'lowres, bad quality, low quality',
+    negativePrompt: 'lowres, bad quality, blurry, low quality, worst quality, text, watermark',
     model: 'nai-diffusion-4',
     resolution: '640x960',
     steps: 28,
-    guidance: 7
+    guidance: 7,
+    sampler: 'k_euler',
+    schedule: 'native',
+    qualityToggle: 'true'
   };
 
   state.presets.push(preset);
   saveToStorage();
   renderPresets();
+  renderArtistSelect();
   show('预设已保存');
 }
 
 function deletePreset(id) {
-  if (confirm('确定删除?')) {
+  if (confirm('确定删除预设?')) {
     state.presets = state.presets.filter(p => p.id !== id);
     saveToStorage();
     renderPresets();
+    renderArtistSelect();
     show('预设已删除');
   }
 }
@@ -86,6 +141,9 @@ function renderPresets() {
     <div class="preset-item" onclick="loadPreset(${p.id})">
       <strong>${p.name}</strong>
       <small>${p.prompt.substring(0, 30)}...</small>
+      <div style="margin-top: 6px; font-size: 11px; color: #666;">
+        ${p.model} · ${p.steps}步
+      </div>
       <button onclick="event.stopPropagation(); deletePreset(${p.id})" style="
         float: right;
         background: none;
@@ -93,26 +151,34 @@ function renderPresets() {
         color: #f44;
         cursor: pointer;
         padding: 0;
+        font-size: 16px;
       ">×</button>
     </div>
   `).join('');
+}
+
+function renderArtistSelect() {
+  const select = document.getElementById('artistSelect');
+  select.innerHTML = '<option value="">选择预设...</option>' +
+    state.presets.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 }
 
 function loadPreset(id) {
   const preset = state.presets.find(p => p.id === id);
   if (!preset) return;
 
-  document.getElementById('artistSelect').value = id;
   document.getElementById('prompt').value = preset.prompt;
   document.getElementById('negativePrompt').value = preset.negativePrompt;
   document.getElementById('model').value = preset.model;
   document.getElementById('resolution').value = preset.resolution;
   document.getElementById('steps').value = preset.steps;
   document.getElementById('guidance').value = preset.guidance;
+  document.getElementById('sampler').value = preset.sampler;
+  document.getElementById('schedule').value = preset.schedule;
+  document.getElementById('qualityToggle').value = preset.qualityToggle;
   if (preset.seed) document.getElementById('seed').value = preset.seed;
 
   state.currentArtist = preset;
-  show('已加载预设: ' + preset.name);
 }
 
 function applyPreset() {
@@ -129,11 +195,11 @@ async function generate() {
     return;
   }
 
-  const token = localStorage.getItem(STORAGE_KEY_TOKEN);
+  const token = getApiToken();
   if (!token) {
-    const newToken = prompt('输入 Novel AI API Token (从 https://novelai.net 获取):');
-    if (!newToken) return;
-    localStorage.setItem(STORAGE_KEY_TOKEN, newToken);
+    show('⚙ 请先设置 API Token');
+    openSettings();
+    return;
   }
 
   const jobId = Date.now().toString();
@@ -147,6 +213,9 @@ async function generate() {
     guidance: parseFloat(document.getElementById('guidance').value),
     seed: document.getElementById('seed').value || null,
     batchSize: parseInt(document.getElementById('batchSize').value),
+    sampler: document.getElementById('sampler').value,
+    schedule: document.getElementById('schedule').value,
+    qualityToggle: document.getElementById('qualityToggle').value === 'true',
     status: 'queued',
     timestamp: new Date().toLocaleString(),
     result: null
@@ -172,11 +241,12 @@ async function processQueue() {
   renderQueue();
 
   try {
-    const token = localStorage.getItem(STORAGE_KEY_TOKEN);
+    const token = getApiToken();
+    const endpoint = getApiEndpoint();
     const [width, height] = job.resolution.split('x').map(Number);
     const seed = job.seed ? parseInt(job.seed) : Math.floor(Math.random() * 1000000000);
 
-    const response = await fetch(API_URL, {
+    const response = await fetch(`${endpoint}/ai/generate-image`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -194,14 +264,18 @@ async function processQueue() {
           seed,
           n_samples: job.batchSize,
           negative_prompt: job.negativePrompt,
-          sampler: 'k_euler',
-          schedule: 'native'
+          sampler: job.sampler,
+          schedule: job.schedule,
+          dynamic_thresholding: false,
+          qualityToggle: job.qualityToggle,
+          uc_preset: 0
         }
       })
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`API Error ${response.status}: ${errorText.substring(0, 100)}`);
     }
 
     const blob = await response.blob();
@@ -211,7 +285,7 @@ async function processQueue() {
     job.result = {
       imageUrl: url,
       seed,
-      artist: state.currentArtist ? state.currentArtist.name : 'Custom'
+      artist: state.currentArtist ? state.currentArtist.name : '自定义'
     };
 
     // 加入画廊
@@ -221,7 +295,8 @@ async function processQueue() {
       imageUrl: url,
       timestamp: job.timestamp,
       artist: job.result.artist,
-      seed
+      seed,
+      model: job.model
     });
 
     saveToStorage();
@@ -232,11 +307,11 @@ async function processQueue() {
     const preview = document.getElementById('preview');
     preview.innerHTML = `<img src="${url}" style="width: 100%; height: 100%; object-fit: cover;">`;
 
-    show('生成完成!');
+    show('✓ 生成完成');
   } catch (error) {
     job.status = 'error';
     job.error = error.message;
-    show('生成失败: ' + error.message);
+    show('✗ ' + error.message);
   } finally {
     state.processing = false;
     saveToStorage();
@@ -272,13 +347,14 @@ function renderQueue() {
       <div class="queue-item ${statusClass}">
         <div>
           <div>${job.prompt.substring(0, 50)}...</div>
-          <div class="queue-status">${job.resolution} · ${job.steps} steps · ${statusText}</div>
+          <div class="queue-status">${job.resolution} · ${job.steps}步 · ${job.sampler} · ${statusText}</div>
         </div>
         <button onclick="removeQueueJob('${job.id}')" style="
           background: none;
           border: none;
           color: #f44;
           cursor: pointer;
+          flex-shrink: 0;
         ">×</button>
       </div>
     `;
@@ -304,7 +380,8 @@ function renderGallery() {
       <img src="${item.imageUrl}" alt="${item.prompt}">
       <div class="gallery-item-info">
         <strong>${item.artist}</strong><br>
-        ${item.timestamp}
+        <small>${item.model}</small><br>
+        Seed: ${item.seed}
       </div>
     </div>
   `).join('');
@@ -313,17 +390,15 @@ function renderGallery() {
 function downloadImage(url, seed) {
   const a = document.createElement('a');
   a.href = url;
-  a.download = `novel-${seed}.png`;
+  a.download = `nai-${seed}.png`;
   a.click();
 }
 
 // ===== UI 辅助 =====
 function switchTab(tab) {
-  // 隐藏所有标签页
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
 
-  // 显示选中标签页
   document.getElementById(`tab-${tab}`).classList.add('active');
   event.target.classList.add('active');
 }
@@ -333,5 +408,5 @@ function show(msg) {
   div.className = 'message';
   div.textContent = msg;
   document.body.appendChild(div);
-  setTimeout(() => div.remove(), 2500);
+  setTimeout(() => div.remove(), 3000);
 }

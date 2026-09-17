@@ -12,6 +12,68 @@
       color: #e0e0e0;
       padding: 20px;
     }
+
+    /* 模态窗口 */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal.hidden { display: none; }
+    .modal-content {
+      background: #242424;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 400px;
+      border: 1px solid #333;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #333;
+    }
+    .modal-header h2 { font-size: 16px; }
+    .btn-close {
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .btn-secondary {
+      width: 100%;
+      padding: 12px;
+      background: #333;
+      color: #e0e0e0;
+      border: 1px solid #444;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .btn-secondary:hover { background: #3a3a3a; }
+
     .container {
       max-width: 1200px;
       margin: 0 auto;
@@ -34,6 +96,17 @@
       text-transform: uppercase;
       font-weight: 600;
     }
+    .btn-settings {
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+    }
+    .btn-settings:hover { color: #ccc; }
     .preset-item {
       padding: 12px 10px;
       margin-bottom: 8px;
@@ -266,10 +339,38 @@
   </style>
 </head>
 <body>
+  <!-- 设置窗口 -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>设置</h2>
+        <button class="btn-close" onclick="closeSettings()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Novel AI API Token</label>
+          <input type="password" id="tokenInput" placeholder="sk-...">
+          <small>从 https://novelai.net 获取</small>
+        </div>
+        <div class="form-group">
+          <label>API 地址 (可选)</label>
+          <input type="text" id="apiEndpoint" placeholder="https://api.novelai.net" value="https://api.novelai.net">
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="saveSettings()">保存</button>
+          <button class="btn-secondary" onclick="closeSettings()">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
     <!-- 侧边栏：画师预设 -->
     <div class="sidebar">
-      <h2>画师预设</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2>画师预设</h2>
+        <button class="btn-settings" onclick="openSettings()" title="设置">⚙</button>
+      </div>
       <button class="btn-add-preset" onclick="showPresetForm()">+ 新建预设</button>
       <div id="presetList"></div>
     </div>
@@ -342,6 +443,36 @@
             <div class="form-group">
               <label>生成数量</label>
               <input type="number" id="batchSize" value="1" min="1" max="4">
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="form-group">
+              <label>采样器</label>
+              <select id="sampler">
+                <option value="k_euler">Euler</option>
+                <option value="k_euler_ancestral">Euler Ancestral</option>
+                <option value="k_heun">Heun</option>
+                <option value="k_dpm_2">DPM++ 2M</option>
+                <option value="k_dpm_2_ancestral">DPM++ 2M Ancestral</option>
+                <option value="k_lms">LMS</option>
+                <option value="k_dpmpp_sde">DPM++ SDE</option>
+                <option value="ddim">DDIM</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>调度方式</label>
+              <select id="schedule">
+                <option value="native">Native</option>
+                <option value="karras">Karras</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>质量开关</label>
+              <select id="qualityToggle">
+                <option value="true">启用</option>
+                <option value="false">禁用</option>
+              </select>
             </div>
           </div>
 
