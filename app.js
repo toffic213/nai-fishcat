@@ -86,6 +86,11 @@ function loadFromStorage() {
   if (presets) state.presets = JSON.parse(presets);
   if (gallery) state.gallery = JSON.parse(gallery);
   if (queue) state.queue = JSON.parse(queue);
+  state.gallery.forEach(item => { if (!item.imageUrl && item.imageData) item.imageUrl = item.imageData; });
+  state.presets.forEach(preset => {
+    if (preset.model === 'nai-diffusion-4' || preset.model === 'nai-diffusion-4-5') preset.model = 'nai-diffusion-5';
+    preset.results = preset.results || [];
+  });
 }
 
 function saveToStorage() {
@@ -109,7 +114,7 @@ function showPresetForm() {
     prompt,
     seed,
     negativePrompt: 'lowres, bad quality, blurry, low quality, worst quality, text, watermark',
-    model: 'nai-diffusion-4-5',
+    model: 'nai-diffusion-5',
     resolution: '640x960',
     steps: 28,
     guidance: 7,
@@ -140,7 +145,7 @@ function renderPresets() {
   list.innerHTML = state.presets.map(p => `
     <div class="preset-item" onclick="loadPreset(${p.id})">
       <strong>${p.name}</strong>
-      <small>${p.prompt.substring(0, 30)}...</small>
+      <small>${p.prompt.substring(0, 30)}... · ${(p.results || []).length} 张效果图</small>
       <div style="margin-top: 6px; font-size: 11px; color: #666;">
         ${p.model} · ${p.steps}步
       </div>
@@ -241,7 +246,7 @@ async function processQueue() {
   renderQueue();
 
   try {
-    const token = getApiToken();
+    const token = getApiToken() || undefined;
     const [width, height] = job.resolution.split('x').map(Number);
     const seed = job.seed ? parseInt(job.seed) : Math.floor(Math.random() * 1000000000);
 
@@ -265,10 +270,7 @@ async function processQueue() {
           n_samples: job.batchSize,
           negative_prompt: job.negativePrompt,
           sampler: job.sampler,
-          schedule: job.schedule,
-          dynamic_thresholding: false,
-          qualityToggle: job.qualityToggle,
-          uc_preset: 0
+          qualityToggle: job.qualityToggle
         }
       })
     });
@@ -280,10 +282,17 @@ async function processQueue() {
 
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
+    const imageData = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
 
     job.status = 'done';
     job.result = {
       imageUrl: url,
+      imageData,
       seed,
       artist: state.currentArtist ? state.currentArtist.name : '自定义'
     };
@@ -292,12 +301,16 @@ async function processQueue() {
     state.gallery.unshift({
       id: Date.now(),
       prompt: job.prompt,
-      imageUrl: url,
+      imageUrl: imageData,
       timestamp: job.timestamp,
       artist: job.result.artist,
       seed,
       model: job.model
     });
+    if (state.currentArtist) {
+      state.currentArtist.results = state.currentArtist.results || [];
+      state.currentArtist.results.unshift({ imageData, prompt: job.prompt, seed, model: job.model, timestamp: job.timestamp });
+    }
 
     saveToStorage();
     renderQueue();
